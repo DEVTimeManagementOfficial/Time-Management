@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Management</title>
+    <style>
+        /* Custom CSS styles */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0; /* Aesthetic background color */
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+        h1, h2 {
+            color: #333333;
+            font-family: 'Pacifico', cursive;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 1em;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            background-color: #654321;
+            color: #fff;
+        }
+        .btn:hover {
+            background-color: #523013;
+        }
+        .form-input {
+            margin-top: 10px;
+            padding: 8px 12px;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 25px;
+            width: calc(100% - 24px);
+            box-sizing: border-box;
+        }
+        .auth-section, .task-box {
+            margin-top: 30px;
+            text-align: center;
+            color: #333;
+        }
+        .auth-section p {
+            margin-top: 10px;
+            color: #666;
+        }
+        .auth-section a {
+            color: #654321;
+            text-decoration: none;
+        }
+        .auth-section a:hover {
+            text-decoration: underline;
+        }
+        /* New styles */
+        .task {
+            margin-bottom: 20px;
+        }
+        .tick-mark {
+            display: none;
+            color: green;
+        }
+        /* Additional style for the download button */
+        #download-excel-btn {
+            margin-top: 20px;
+            display: none; /* Initially hide the download button */
+        }
+        /* Error Page */
+        #error-page {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            text-align: center;
+            padding-top: 20%;
+            z-index: 100;
+        }
+        #error-page h1 {
+            font-size: 3em;
+        }
+
+        /* Help Form Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            border-radius: 10px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        /* Version Text */
+        #version {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #333;
+        }
+        /* Version Text - Update Option */
+        #update-option {
+            color: #333;
+            cursor: pointer;
+        }
+        #update-option:hover {
+            color: #ff0000; /* Red color for Beta */
+        }
+        /* Color Picker */
+        #color-picker {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Time Management App</h1>
+        <!-- Version Display -->
+        <div id="version">v1.0 <span id="update-option">Beta</span></div>
+        <!-- Sign-in Section -->
+        <div class="auth-section" id="auth-section">
+            <h2>Log In</h2>
+            <form id="signin-form">
+                <input type="text" placeholder="Username" id="username" class="form-input" required>
+                <br><br>
+                <input type="password" placeholder="Password" id="password" class="form-input" required>
+                <br><br>
+                <button type="submit" class="btn">Log In</button>
+            </form>
+        </div>
+
+        <!-- Task Management Section -->
+        <div class="task-box" id="task-box" style="display: none;">
+            <h2 id="greeting"></h2>
+            <div id="clock" class="clock"></div>
+            <div id="tasks-container"></div>
+            <br><br>
+            <button id="add-task-btn" class="btn" onclick="addTask()">Add Task</button>
+        </div>
+
+        <!-- Download Website Details Button -->
+        <div id="download-excel-btn">
+            <button id="download-btn" class="btn" onclick="downloadExcel()">Download Website Details</button>
+        </div>
+
+        <!-- Error Page -->
+        <div id="error-page">
+            <h1>Error Occurred</h1>
+            <p id="error-message">Something went wrong. The website will close in 5 seconds.</p>
+        </div>
+    </div>
+
+    <script>
+        let taskId = 1;
+        let currentUser = null;
+        let websiteDetails = [];
+        let isAdmin = false;
+        let countdownIntervals = {};
+        let messages = [];
+
+        const apiUrl = 'https://jsonplaceholder.typicode.com/posts'; // Mock API for demonstration
+
+        // Handle form submissions
+        document.getElementById('signin-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            // Simulate authentication
+            if (username === 'admin' && password === 'admin1029') {
+                isAdmin = true;
+                currentUser = username;
+                alert("Login Successful!");
+                document.getElementById('auth-section').style.display = 'none';
+                document.getElementById('task-box').style.display = 'none';
+                document.getElementById('download-excel-btn').style.display = 'block';
+                greetUser(); // Greet the admin
+            } else {
+                isAdmin = false;
+                currentUser = username;
+                alert("Login Successful!");
+                document.getElementById('auth-section').style.display = 'none';
+                document.getElementById('task-box').style.display = 'block';
+                greetUser(); // Greet the user
+            }
+
+            // Apply task color
+            const taskColor = document.getElementById('task-color').value; // Get chosen task color
+            document.body.style.backgroundColor = taskColor;
+        });
+
+        // Greet the user
+        function greetUser() {
+            const greetingElement = document.getElementById('greeting');
+            const clockElement = document.getElementById('clock');
+            const currentTime = new Date();
+            const hours = currentTime.getHours();
+
+            let greeting = '';
+            if (hours < 12) {
+                greeting = 'Good morning';
+            } else if (hours < 18) {
+                greeting = 'Good afternoon';
+            } else {
+                greeting = 'Good evening';
+            }
+            greeting += `, ${currentUser}`;
+            greetingElement.textContent = greeting;
+
+            // Update clock
+            setInterval(() => {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString();
+                clockElement.textContent = timeString;
+            }, 1000);
+        }
+
+        // Add Task function
+        function addTask() {
+            const tasksContainer = document.getElementById('tasks-container');
+            const taskBox = document.createElement('div');
+            taskBox.className = 'task';
+            taskBox.id = `task-${taskId}`;
+            taskBox.innerHTML = `
+                <input type="text" placeholder="Enter your task" class="form-input">
+                <br><br>
+                <input type="time" class="form-input">
+                <br><br>
+                <button class="btn" onclick="toggleTaskCompletion(${taskId})">Start Task</button>
+                <br><br>
+                <div class="due-date" id="countdown-${taskId}"></div>
+                <div class="tick-mark" id="tick-${taskId}"></div>
+            `;
+            tasksContainer.appendChild(taskBox);
+            taskId++;
+        }
+
+        // Toggle Task Completion
+        function toggleTaskCompletion(taskId) {
+            const taskButton = document.getElementById(`task-${taskId}`).querySelector('button');
+            const countdownElement = document.getElementById(`countdown-${taskId}`);
+            const tickMark = document.getElementById(`tick-${taskId}`);
+            const isTaskCompleted = taskButton.textContent === 'End Task';
+
+            if (isTaskCompleted) {
+                countdownElement.textContent = 'Task completed!';
+                clearInterval(countdownIntervals[taskId]);
+                tickMark.style.display = 'block';
+            } else {
+                taskButton.textContent = 'End Task';
+                startCountdown(taskId);
+            }
+        }
+
+        // Countdown timer
+        function startCountdown(taskId) {
+            const taskTimeInput = document.getElementById(`task-${taskId}`).querySelector('input[type="time"]');
+            const taskTime = taskTimeInput.value;
+            if (!taskTime) return;
+
+            const [hours, minutes] = taskTime.split(':');
+            let endTime = new Date();
+            endTime.setHours(parseInt(hours));
+            endTime.setMinutes(parseInt(minutes));
+
+            const countdownElement = document.getElementById(`countdown-${taskId}`);
+            countdownIntervals[taskId] = setInterval(updateCountdown, 1000);
+
+            function updateCountdown() {
+                const now = new Date();
+                let remainingTime = endTime - now;
+                let hours = Math.floor((remainingTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                let minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+                let seconds = Math.floor((remainingTime % (1000 * 60)) / 1000);
+
+                if (remainingTime <= 0) {
+                    clearInterval(countdownIntervals[taskId]);
+                    countdownElement.textContent = 'Task completed!';
+                    const tickMark = document.getElementById(`tick-${taskId}`);
+                    tickMark.style.display = 'block';
+                } else {
+                    countdownElement.textContent = `Time left: ${hours} hour(s) ${minutes} minute(s) ${seconds} second(s)`;
+                }
+            }
+        }
+
+        // Download Excel file with website details
+        function downloadExcel() {
+            if (websiteDetails.length > 0) {
+                const data = [
+                    ['Username', 'Password', 'Full Name', 'Date of Birth', 'Email'],
+                    ...websiteDetails
+                ];
+
+                const workbook = XLSX.utils.book_new();
+                const worksheet = XLSX.utils.aoa_to_sheet(data);
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Website Details');
+
+                const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                const excelBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const excelUrl = URL.createObjectURL(excelBlob);
+
+                const downloadLink = document.createElement('a');
+                downloadLink.href = excelUrl;
+                downloadLink.download = 'website_details.xlsx';
+
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+            } else {
+                alert("No website details to download.");
+            }
+        }
+
+        // Show error page and close website after 5 seconds
+        function showErrorPage(message) {
+            const errorPage = document.getElementById('error-page');
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = message;
+            errorPage.style.display = 'block';
+            setTimeout(() => {
+                window.close();
+            }, 5000);
+        }
+
+        // Update version display
+        document.getElementById('update-option').addEventListener('click', function () {
+            alert('Check for updates...');
+            setTimeout(updatePage, 2000); // Simulate update check delay
+        });
+
+        // Simulate update process
+        function updatePage() {
+            if (confirm('Update found. Do you want to update now?')) {
+                const updateProgress = document.createElement('div');
+                updateProgress.textContent = 'Updating... 0%';
+                document.body.appendChild(updateProgress);
+
+                let percent = 0;
+                const interval = setInterval(() => {
+                    percent += 5;
+                    updateProgress.textContent = `Updating... ${percent}%`;
+                    if (percent >= 100) {
+                        clearInterval(interval);
+                        alert('Update complete!');
+                        document.body.removeChild(updateProgress);
+                        // Apply updated changes here
+                        document.getElementById('version').textContent = 'v1.01 Beta';
+                        // Any other updates...
+                    }
+                }, 900); // Simulate update time (1 min and 30 sec)
+            }
+        }
+
+    </script>
+</body>
+</html>
+
